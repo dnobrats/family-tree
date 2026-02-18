@@ -6,7 +6,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-
 func AdminLoginPost(db *pgxpool.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		r.ParseForm()
@@ -20,12 +19,12 @@ func AdminLoginPost(db *pgxpool.Pool) http.HandlerFunc {
 			user,
 		).Scan(&hash)
 		if err != nil {
-			http.Error(w, "invalid login", 401)
+			http.Error(w, "invalid login", http.StatusUnauthorized)
 			return
 		}
 
 		if bcrypt.CompareHashAndPassword([]byte(hash), []byte(pass)) != nil {
-			http.Error(w, "invalid login", 401)
+			http.Error(w, "invalid login", http.StatusUnauthorized)
 			return
 		}
 
