@@ -29,4 +29,3 @@ func NewPostgres(cfg map[string]string) (*pgxpool.Pool, error) {
 
 	return pgxpool.New(context.Background(), dsn)
 }
-

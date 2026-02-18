@@ -30,4 +30,3 @@ func PersonHandler(db *pgxpool.Pool) http.HandlerFunc {
 		json.NewEncoder(w).Encode(resp)
 	}
 }
-

@@ -20,4 +20,3 @@ type PersonDetail struct {
 	GraveLocation *string `json:"grave_location"`
 	Note          *string `json:"note"`
 }
-

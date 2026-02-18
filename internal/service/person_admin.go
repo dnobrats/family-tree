@@ -7,15 +7,15 @@ import (
 )
 
 type PersonInput struct {
-	FullName string
-	Gender   int
+	FullName  string
+	Gender    int
 	BirthYear *int
-	FatherID *int64
-	MotherID *int64
-	ClanID   *int64
-	IsAlive  bool
-	Address  *string
-	Note     *string
+	FatherID  *int64
+	MotherID  *int64
+	ClanID    *int64
+	IsAlive   bool
+	Address   *string
+	Note      *string
 }
 
 func CreatePerson(ctx context.Context, db *pgxpool.Pool, in PersonInput) error {

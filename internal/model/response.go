@@ -5,4 +5,3 @@ type ClanTreeResponse struct {
 	Clan  Clan         `json:"clan"`
 	Nodes []PersonNode `json:"nodes"`
 }
-

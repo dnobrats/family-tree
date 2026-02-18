@@ -18,4 +18,3 @@ func RateLimit(rps int) func(http.Handler) http.Handler {
 		})
 	}
 }
-

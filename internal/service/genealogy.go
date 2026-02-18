@@ -267,4 +267,3 @@ WHERE p.id = $1
 
 	return &p, nil
 }
-

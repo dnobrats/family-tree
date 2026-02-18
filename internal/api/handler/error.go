@@ -12,4 +12,3 @@ func writeJSONError(w http.ResponseWriter, status int, msg string) {
 		"error": msg,
 	})
 }
-

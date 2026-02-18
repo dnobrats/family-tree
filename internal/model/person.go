@@ -15,4 +15,3 @@ type TreeResponse struct {
 	RootID int64        `json:"root_id"`
 	Nodes  []PersonNode `json:"nodes"`
 }
-

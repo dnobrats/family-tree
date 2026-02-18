@@ -19,4 +19,3 @@ func DocsHandler() http.HandlerFunc {
 		w.Write(data)
 	}
 }
-

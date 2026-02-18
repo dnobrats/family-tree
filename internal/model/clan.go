@@ -6,4 +6,3 @@ type Clan struct {
 	ParentClanID *int64 `json:"parent_clan_id"`
 	RootPersonID int64  `json:"root_person_id"`
 }
-
