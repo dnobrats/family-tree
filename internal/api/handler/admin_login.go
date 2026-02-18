@@ -1,3 +1,5 @@
+package handler
+
 func AdminLoginPost(db *pgxpool.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		r.ParseForm()

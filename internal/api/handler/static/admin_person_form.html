@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Nhập người</title>
+    <style>
+      body {
+        font-family: system-ui;
+        padding: 30px;
+      }
+      label {
+        display: block;
+        margin-top: 10px;
+      }
+      input,
+      select {
+        padding: 6px;
+        width: 300px;
+      }
+      button {
+        margin-top: 20px;
+        padding: 8px 14px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <h2>{{TITLE}}</h2>
+
+    <form method="post" action="{{ACTION}}">
+      <label>Họ tên</label>
+      <input name="full_name" value="{{FULL_NAME}}" required />
+
+      <label>Giới tính</label>
+      <select name="gender">
+        <option value="1">Nam</option>
+        <option value="2">Nữ</option>
+      </select>
+
+      <label>Năm sinh</label>
+      <input name="birth_year" value="{{BIRTH_YEAR}}" />
+
+      <label>Cha (ID)</label>
+      <input name="father_id" value="{{FATHER_ID}}" />
+
+      <label>Mẹ (ID)</label>
+      <input name="mother_id" value="{{MOTHER_ID}}" />
+
+      <label>Chi (ID)</label>
+      <input name="clan_id" value="{{CLAN_ID}}" />
+
+      <label>
+        <input type="checkbox" name="is_alive" value="1" {{IS_ALIVE}} />
+        Còn sống
+      </label>
+
+      <button>Lưu</button>
+    </form>
+  </body>
+</html>
