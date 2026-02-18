@@ -25,13 +25,13 @@ func AdminNewPerson() http.HandlerFunc {
   <label>Năm sinh</label><br/>
   <input name="birth_year"/><br/><br/>
 
-  <label>Cha (ID)</label><br/>
+  <label>Cha (ID hoặc tên)</label><br/>
   <input name="father_id"/><br/><br/>
 
-  <label>Mẹ (ID)</label><br/>
+  <label>Mẹ (ID hoặc tên)</label><br/>
   <input name="mother_id"/><br/><br/>
 
-  <label>Chi (ID)</label><br/>
+  <label>Chi (ID hoặc tên trưởng chi)</label><br/>
   <input name="clan_id"/><br/><br/>
 
   <label>
