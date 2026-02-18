@@ -1,0 +1,13 @@
+server:
+  port: 8080
+
+database:
+  host: localhost
+  port: 5432
+  user: tran
+  password: TranGiaTien@8386
+  name: tran
+
+rate_limit:
+  rps: 5
+

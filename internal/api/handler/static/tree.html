@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Cây Gia Phả</title>
+
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        background: #fafafa;
+        padding: 20px;
+      }
+
+      header {
+        display: flex;
+        gap: 20px;
+        align-items: center;
+        justify-content: center;
+      }
+
+      select,
+      input {
+        padding: 6px;
+        font-size: 14px;
+      }
+
+      .tree-container {
+        position: relative;
+        margin-top: 40px;
+      }
+
+      .tree {
+        display: flex;
+        justify-content: center;
+      }
+
+      /* ===== FAMILY STRUCTURE ===== */
+      .family {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin: 0 30px;
+        position: relative;
+      }
+
+      .couple {
+        display: flex;
+        gap: 10px;
+      }
+
+      .node {
+        border: 1px solid #666;
+        padding: 6px 10px;
+        border-radius: 6px;
+        background: #fff;
+        cursor: pointer;
+        min-width: 120px;
+        text-align: center;
+        z-index: 2;
+      }
+
+      .node.dead {
+        background: #eee;
+        color: #777;
+      }
+
+      .children {
+        display: flex;
+        gap: 20px;
+        margin-top: 40px;
+      }
+
+      svg {
+        position: absolute;
+        top: 0;
+        left: 0;
+        pointer-events: none;
+      }
+
+      .popup {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.4);
+        display: none;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .popup-content {
+        background: #fff;
+        padding: 20px;
+        width: 360px;
+        border-radius: 8px;
+      }
+      .popup-content h3 {
+        margin-top: 0;
+      }
+    </style>
+  </head>
+
+  <body>
+    <header>
+      <strong>Cây Gia Phả</strong>
+
+      <label>Chi:</label>
+      <select id="clanSelect">
+        <option value="root">Toàn bộ</option>
+        <option value="1">Chi 1</option>
+        <option value="2">Chi 2</option>
+      </select>
+
+      <label>Tìm tên:</label>
+      <input id="searchBox" placeholder="Nguyễn Văn..." />
+    </header>
+
+    <div class="tree-container">
+      <svg id="lines"></svg>
+      <div id="tree" class="tree"></div>
+    </div>
+
+    <!-- Popup -->
+    <div id="popup" class="popup" onclick="closePopup()">
+      <div class="popup-content" onclick="event.stopPropagation()">
+        <h3 id="pName"></h3>
+        <div id="pInfo"></div>
+      </div>
+    </div>
+
+    <script>
+      let allNodes = [];
+      let nodeMap = {};
+
+      async function load() {
+        document.getElementById("clanSelect").onchange = reloadTree;
+        document.getElementById("searchBox").oninput = renderFiltered;
+        await reloadTree();
+      }
+
+      async function reloadTree() {
+        const sel = document.getElementById("clanSelect").value;
+        let url = "/api/tree?root=1";
+        if (sel !== "root") url = `/api/clans/${sel}/tree`;
+
+        const res = await fetch(url);
+        const data = await res.json();
+        allNodes = data.nodes;
+        buildFamilies(data.root_id || data.clan.root_person_id);
+      }
+
+      /* ================= CORE LOGIC ================= */
+
+      function buildFamilies(rootId) {
+        nodeMap = {};
+        allNodes.forEach((n) => (nodeMap[n.id] = n));
+
+        // group children by (father_id, mother_id)
+        const families = {};
+        allNodes.forEach((c) => {
+          const f = c.father_id || 0;
+          const m = c.mother_id || 0;
+          const key = `${f}_${m}`;
+          if (!families[key]) {
+            families[key] = {
+              father: nodeMap[f] || null,
+              mother: nodeMap[m] || null,
+              children: [],
+            };
+          }
+          families[key].children.push(c);
+        });
+
+        document.getElementById("tree").innerHTML = "";
+        const rootFamily = Object.values(families).find(
+          (f) => f.father?.id === rootId || f.mother?.id === rootId,
+        );
+
+        if (rootFamily) {
+          document.getElementById("tree").appendChild(renderFamily(rootFamily));
+        }
+
+        drawLines();
+      }
+
+      function renderFamily(fam) {
+        const div = document.createElement("div");
+        div.className = "family";
+
+        const couple = document.createElement("div");
+        couple.className = "couple";
+
+        if (fam.father) couple.appendChild(renderPerson(fam.father));
+        if (fam.mother) couple.appendChild(renderPerson(fam.mother));
+        div.appendChild(couple);
+
+        if (fam.children.length > 0) {
+          const kids = document.createElement("div");
+          kids.className = "children";
+
+          fam.children.forEach((c) => {
+            // child may form another family later
+            const childNode = renderPerson(c);
+            kids.appendChild(childNode);
+          });
+
+          div.appendChild(kids);
+        }
+
+        return div;
+      }
+
+      function renderPerson(p) {
+        const box = document.createElement("div");
+        box.className = "node" + (p.is_alive ? "" : " dead");
+        box.textContent = p.full_name;
+        box.onclick = () => showPerson(p.id);
+        return box;
+      }
+
+      /* ================= SVG LINES ================= */
+
+      function drawLines() {
+        const svg = document.getElementById("lines");
+        svg.innerHTML = "";
+
+        const container = document
+          .querySelector(".tree-container")
+          .getBoundingClientRect();
+
+        svg.setAttribute("width", container.width);
+        svg.setAttribute("height", container.height);
+
+        document.querySelectorAll(".family").forEach((fam) => {
+          const couple = fam.querySelector(".couple");
+          const kids = fam.querySelector(".children");
+          if (!couple || !kids) return;
+
+          const cRect = couple.getBoundingClientRect();
+          const kNodes = kids.querySelectorAll(".node");
+          if (kNodes.length === 0) return;
+
+          // Điểm gốc từ cặp vợ chồng
+          const cx = cRect.left + cRect.width / 2 - container.left;
+          const cy = cRect.bottom - container.top;
+
+          // Y của thanh ngang
+          const barY = kids.getBoundingClientRect().top - container.top - 10;
+
+          // Lấy X min/max của các con
+          let minX = Infinity;
+          let maxX = -Infinity;
+
+          kNodes.forEach((n) => {
+            const r = n.getBoundingClientRect();
+            const x = r.left + r.width / 2 - container.left;
+            minX = Math.min(minX, x);
+            maxX = Math.max(maxX, x);
+
+            // Nhánh dọc từ thanh ngang xuống con
+            const v = document.createElementNS(
+              "http://www.w3.org/2000/svg",
+              "line",
+            );
+            v.setAttribute("x1", x);
+            v.setAttribute("y1", barY);
+            v.setAttribute("x2", x);
+            v.setAttribute("y2", r.top - container.top);
+            v.setAttribute("stroke", "#555");
+            svg.appendChild(v);
+          });
+
+          // Trục dọc từ cặp xuống thanh ngang
+          const trunk = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "line",
+          );
+          trunk.setAttribute("x1", cx);
+          trunk.setAttribute("y1", cy);
+          trunk.setAttribute("x2", cx);
+          trunk.setAttribute("y2", barY);
+          trunk.setAttribute("stroke", "#555");
+          svg.appendChild(trunk);
+
+          // Thanh ngang nối các con
+          if (kNodes.length > 1) {
+            const bar = document.createElementNS(
+              "http://www.w3.org/2000/svg",
+              "line",
+            );
+            bar.setAttribute("x1", minX);
+            bar.setAttribute("y1", barY);
+            bar.setAttribute("x2", maxX);
+            bar.setAttribute("y2", barY);
+            bar.setAttribute("stroke", "#555");
+            svg.appendChild(bar);
+          }
+        });
+      }
+
+      /* ================= SEARCH ================= */
+
+      function renderFiltered() {
+        const q = document.getElementById("searchBox").value.toLowerCase();
+        document.querySelectorAll(".node").forEach((n) => {
+          n.style.display = n.textContent.toLowerCase().includes(q)
+            ? "block"
+            : "none";
+        });
+      }
+
+      /* ================= POPUP ================= */
+
+      async function showPerson(id) {
+        const res = await fetch("/api/persons/" + id);
+        const p = await res.json();
+        document.getElementById("pName").textContent = p.full_name;
+        document.getElementById("pInfo").innerHTML = `
+          <p>Giới tính: ${p.gender === 1 ? "Nam" : "Nữ"}</p>
+          <p>Năm sinh: ${p.birth_year || ""}</p>
+          <p>Tình trạng: ${p.is_alive ? "Còn sống" : "Đã mất"}</p>
+          ${p.clan ? `<p>Chi: ${p.clan.name}</p>` : ""}
+          ${p.grave_location ? `<p>Mộ: ${p.grave_location}</p>` : ""}
+        `;
+        document.getElementById("popup").style.display = "flex";
+      }
+
+      function closePopup() {
+        document.getElementById("popup").style.display = "none";
+      }
+
+      window.onload = load;
+    </script>
+  </body>
+</html>

@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <title>Genealogy API Viewer</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      margin: 40px;
+      background: #fafafa;
+    }
+    h1 {
+      margin-bottom: 10px;
+    }
+    section {
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      padding: 16px;
+      margin-bottom: 20px;
+    }
+    label {
+      display: inline-block;
+      width: 120px;
+    }
+    input {
+      padding: 6px;
+      width: 120px;
+    }
+    button {
+      padding: 6px 12px;
+      cursor: pointer;
+    }
+    pre {
+      background: #f5f5f5;
+      padding: 16px;
+      max-height: 400px;
+      overflow: auto;
+      font-size: 13px;
+    }
+    .endpoint {
+      font-family: monospace;
+      color: #005;
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+
+<h1>Genealogy API Viewer</h1>
+<p>Trang test API nội bộ – không cần Swagger.</p>
+
+<!-- ================= TREE ================= -->
+<section>
+  <div class="endpoint">GET /api/tree</div>
+  <label>Root ID:</label>
+  <input id="treeRoot" value="1" />
+  <button onclick="callTree()">Call</button>
+
+  <pre id="treeOutput">// response</pre>
+</section>
+
+<!-- ================= CLAN TREE ================= -->
+<section>
+  <div class="endpoint">GET /api/clans/{id}/tree</div>
+  <label>Clan ID:</label>
+  <input id="clanId" value="1" />
+  <button onclick="callClanTree()">Call</button>
+
+  <pre id="clanOutput">// response</pre>
+</section>
+
+<!-- ================= PERSON ================= -->
+<section>
+  <div class="endpoint">GET /api/persons/{id}</div>
+  <label>Person ID:</label>
+  <input id="personId" value="1" />
+  <button onclick="callPerson()">Call</button>
+
+  <pre id="personOutput">// response</pre>
+</section>
+
+<script>
+function prettyPrint(el, data) {
+  el.textContent = JSON.stringify(data, null, 2);
+}
+
+function callTree() {
+  const root = document.getElementById("treeRoot").value;
+  fetch(`/api/tree?root=${root}`)
+    .then(res => res.json())
+    .then(data => prettyPrint(
+      document.getElementById("treeOutput"), data))
+    .catch(err => {
+      document.getElementById("treeOutput").textContent = err;
+    });
+}
+
+function callClanTree() {
+  const id = document.getElementById("clanId").value;
+  fetch(`/api/clans/${id}/tree`)
+    .then(res => res.json())
+    .then(data => prettyPrint(
+      document.getElementById("clanOutput"), data))
+    .catch(err => {
+      document.getElementById("clanOutput").textContent = err;
+    });
+}
+
+function callPerson() {
+  const id = document.getElementById("personId").value;
+  fetch(`/api/persons/${id}`)
+    .then(res => res.json())
+    .then(data => prettyPrint(
+      document.getElementById("personOutput"), data))
+    .catch(err => {
+      document.getElementById("personOutput").textContent = err;
+    });
+}
+</script>
+
+</body>
+</html>
+

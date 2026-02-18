@@ -1,0 +1,40 @@
+services:
+  postgres:
+    image: postgres:18
+    container_name: trangiatien-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: tran
+      POSTGRES_USER: tran
+      POSTGRES_PASSWORD: TranGiaTien@8386
+    volumes:
+      - pgdata:/var/lib/postgresql
+    ports:
+      - "5432:5432"
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: trangiatien-be
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_USER: tran
+      DB_PASSWORD: TranGiaTien@8386
+      DB_NAME: tran
+      DB_SCHEMA: tran
+    ports:
+      - "8080:8080"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 256M
+
+volumes:
+  pgdata:
+
