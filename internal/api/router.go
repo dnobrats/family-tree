@@ -34,13 +34,13 @@ func NewRouter(db *pgxpool.Pool) http.Handler {
 
 		r.Get("/", handler.AdminHome())
 
-		// Manual input (CMS)
+		// CREATE
 		r.Get("/persons/new", handler.AdminNewPerson())
-		r.Post("/persons/new", handler.AdminSavePerson(db, false))
-		r.Post("/persons/{id}", handler.AdminSavePerson(db, true))
+		r.Post("/persons/new", handler.AdminCreatePerson(db))
 
-		// (sau này)
-		// r.Get("/persons", handler.AdminListPersons())
+		// UPDATE
+		r.Get("/persons/{id}", handler.AdminEditPerson(db)) // nếu có trang edit
+		r.Post("/persons/{id}", handler.AdminUpdatePerson(db))
 	})
 
 	return r

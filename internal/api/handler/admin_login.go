@@ -1,9 +1,9 @@
 package handler
 
 import (
-	"net/http"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/crypto/bcrypt"
+	"net/http"
 )
 
 func AdminLoginPost(db *pgxpool.Pool) http.HandlerFunc {
