@@ -26,13 +26,13 @@ func AdminNewPerson() http.HandlerFunc {
   <input name="birth_year"/><br/><br/>
 
   <label>Cha (ID hoặc tên)</label><br/>
-  <input name="father_id"/><br/><br/>
+  <input name="father"/><br/><br/>
 
   <label>Mẹ (ID hoặc tên)</label><br/>
-  <input name="mother_id"/><br/><br/>
+  <input name="mother"/><br/><br/>
 
   <label>Chi (ID hoặc tên trưởng chi)</label><br/>
-  <input name="clan_id"/><br/><br/>
+  <input name="clan"/><br/><br/>
 
   <label>
     <input type="checkbox" name="is_alive" value="1" checked/>

@@ -7,11 +7,16 @@ import (
 	"genealogy-be/internal/middleware"
 
 	"github.com/go-chi/chi/v5"
+	chiMiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func NewRouter(db *pgxpool.Pool) http.Handler {
 	r := chi.NewRouter()
+
+	// ================= LOGGING =================
+	r.Use(chiMiddleware.Logger)
+	r.Use(chiMiddleware.Recoverer)
 
 	// ================= PUBLIC =================
 	r.Get("/docs", handler.DocsHandler())
@@ -34,12 +39,12 @@ func NewRouter(db *pgxpool.Pool) http.Handler {
 
 		r.Get("/", handler.AdminHome())
 
-		// CREATE
+		// CREATE — phải đăng ký TRƯỚC route {id} để tránh "new" bị match vào {id}
 		r.Get("/persons/new", handler.AdminNewPerson())
 		r.Post("/persons/new", handler.AdminCreatePerson(db))
 
 		// UPDATE
-		r.Get("/persons/{id}", handler.AdminEditPerson(db)) // nếu có trang edit
+		r.Get("/persons/{id}", handler.AdminEditPerson(db))
 		r.Post("/persons/{id}", handler.AdminUpdatePerson(db))
 	})
 
