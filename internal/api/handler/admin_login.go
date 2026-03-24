@@ -1,37 +1,42 @@
 package handler
 
 import (
-	"github.com/jackc/pgx/v5/pgxpool"
-	"golang.org/x/crypto/bcrypt"
 	"net/http"
+	"time"
+
+	"genealogy-be/internal/auth"
 )
 
-func AdminLoginPost(db *pgxpool.Pool) http.HandlerFunc {
+// AdminLoginPost xử lý đăng nhập admin
+func (h *Handler) AdminLoginPost() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		r.ParseForm()
-		user := r.Form.Get("username")
-		pass := r.Form.Get("password")
-
-		var hash string
-		err := db.QueryRow(
-			r.Context(),
-			`SELECT password_hash FROM admin_user WHERE username=$1`,
-			user,
-		).Scan(&hash)
-		if err != nil {
-			http.Error(w, "invalid login", http.StatusUnauthorized)
+		if err := r.ParseForm(); err != nil {
+			http.Error(w, "invalid form data", http.StatusBadRequest)
 			return
 		}
 
-		if bcrypt.CompareHashAndPassword([]byte(hash), []byte(pass)) != nil {
-			http.Error(w, "invalid login", http.StatusUnauthorized)
+		username := r.Form.Get("username")
+		password := r.Form.Get("password")
+
+		if err := h.service.Admin.Login(r.Context(), username, password); err != nil {
+			http.Error(w, "invalid username or password", http.StatusUnauthorized)
+			return
+		}
+
+		token, err := auth.GenerateSessionToken(username, 24*time.Hour)
+		if err != nil {
+			http.Error(w, "failed to create session", http.StatusInternalServerError)
 			return
 		}
 
 		http.SetCookie(w, &http.Cookie{
-			Name:  "session",
-			Value: "admin",
-			Path:  "/",
+			Name:     "session",
+			Value:    token,
+			Path:     "/",
+			HttpOnly: true,
+			SameSite: http.SameSiteStrictMode,
+			MaxAge:   86400,
+			Expires:  time.Now().Add(24 * time.Hour),
 		})
 
 		http.Redirect(w, r, "/admin", http.StatusFound)

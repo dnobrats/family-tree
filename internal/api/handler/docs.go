@@ -8,7 +8,8 @@ import (
 //go:embed static/docs.html
 var docsFS embed.FS
 
-func DocsHandler() http.HandlerFunc {
+// DocsHandler hiển thị trang documentation
+func (h *Handler) DocsHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		data, err := docsFS.ReadFile("static/docs.html")
 		if err != nil {

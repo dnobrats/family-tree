@@ -6,6 +6,7 @@ type PersonDetail struct {
 	Gender         int     `json:"gender"`
 	BirthYear      *int    `json:"birth_year"`
 	BirthDateSolar *string `json:"birth_date_solar"`
+	BirthDateLunar *string `json:"birth_date_lunar"`
 	IsAlive        bool    `json:"is_alive"`
 
 	DeathDateSolar *string `json:"death_date_solar"`
@@ -17,6 +18,11 @@ type PersonDetail struct {
 	Clan *Clan `json:"clan"`
 
 	Address       *string `json:"address"`
+	Phone         *string `json:"phone"`
+	Occupation    *string `json:"occupation"`
+	AvatarURL     *string `json:"avatar_url"`
 	GraveLocation *string `json:"grave_location"`
 	Note          *string `json:"note"`
+
+	Spouses []Spouse `json:"spouses,omitempty"` // Danh sách vợ/chồng
 }

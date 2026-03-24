@@ -4,84 +4,137 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 
-	"genealogy-be/internal/service"
-
-	"github.com/jackc/pgx/v5/pgxpool"
+	"genealogy-be/internal/repository"
 )
 
-func AdminCreatePerson(db *pgxpool.Pool) http.HandlerFunc {
+// AdminCreatePerson xử lý tạo person mới
+func (h *Handler) AdminCreatePerson() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		log.Println("[AdminCreatePerson] Nhận request POST /admin/persons/new")
-
-		// parse form
 		if err := r.ParseForm(); err != nil {
-			log.Printf("[AdminCreatePerson] Lỗi parse form: %v", err)
 			http.Error(w, "Lỗi đọc form", http.StatusBadRequest)
 			return
 		}
 
-		log.Printf("[AdminCreatePerson] Form data: %v", r.Form)
+		// Parse fields
+		fullName := r.Form.Get("full_name")
+		if fullName == "" {
+			http.Error(w, "Họ tên là bắt buộc", http.StatusBadRequest)
+			return
+		}
 
-		// parse fields
-		gender, _ := strconv.Atoi(r.Form.Get("gender"))
-
-		// resolve IDs
-		fatherRaw := r.Form.Get("father")
-		motherRaw := r.Form.Get("mother")
-		clanRaw := r.Form.Get("clan")
-		log.Printf("[AdminCreatePerson] father=%q mother=%q clan=%q", fatherRaw, motherRaw, clanRaw)
-
-		fatherID, err := service.ResolvePersonID(r.Context(), db, fatherRaw)
+		gender, err := strconv.Atoi(r.Form.Get("gender"))
 		if err != nil {
-			log.Printf("[AdminCreatePerson] Lỗi resolve father: %v", err)
-			http.Error(w, "Lỗi tìm cha: "+err.Error(), http.StatusBadRequest)
+			http.Error(w, "Giới tính không hợp lệ", http.StatusBadRequest)
 			return
 		}
-		motherID, err := service.ResolvePersonID(r.Context(), db, motherRaw)
+
+		// Resolve IDs - chỉ báo lỗi nếu nhập tên không tìm thấy
+		fatherStr := r.Form.Get("father")
+		if fatherStr == "" {
+			http.Error(w, "Cha là bắt buộc", http.StatusBadRequest)
+			return
+		}
+		fatherID, err := h.service.Person.ResolvePersonID(r.Context(), fatherStr)
+		if err != nil && fatherStr != "" {
+			http.Error(w, "Không tìm thấy cha với tên/ID: "+fatherStr, http.StatusBadRequest)
+			return
+		}
+
+		motherStr := r.Form.Get("mother")
+		if motherStr == "" {
+			http.Error(w, "Mẹ là bắt buộc", http.StatusBadRequest)
+			return
+		}
+		motherID, err := h.service.Person.ResolvePersonID(r.Context(), motherStr)
+		if err != nil && motherStr != "" {
+			http.Error(w, "Không tìm thấy mẹ với tên/ID: "+motherStr, http.StatusBadRequest)
+			return
+		}
+
+		clanStr := r.Form.Get("clan")
+		if clanStr == "" {
+			http.Error(w, "Chi là bắt buộc", http.StatusBadRequest)
+			return
+		}
+		clanID, err := h.service.Person.ResolveClanID(r.Context(), clanStr)
+		if err != nil && clanStr != "" {
+			http.Error(w, "Không tìm thấy chi với tên/ID: "+clanStr, http.StatusBadRequest)
+			return
+		}
+
+		birthDateSolar, err := parseDatePtr(r.Form.Get("birth_date_solar"))
 		if err != nil {
-			log.Printf("[AdminCreatePerson] Lỗi resolve mother: %v", err)
-			http.Error(w, "Lỗi tìm mẹ: "+err.Error(), http.StatusBadRequest)
+			http.Error(w, "Ngày sinh dương lịch không hợp lệ (YYYY-MM-DD)", http.StatusBadRequest)
 			return
 		}
-		clanID, err := service.ResolveClanID(r.Context(), db, clanRaw)
+
+		birthDateLunar, err := parseDatePtr(r.Form.Get("birth_date_lunar"))
 		if err != nil {
-			log.Printf("[AdminCreatePerson] Lỗi resolve clan: %v", err)
-			http.Error(w, "Lỗi tìm chi: "+err.Error(), http.StatusBadRequest)
+			http.Error(w, "Ngày sinh âm lịch không hợp lệ (YYYY-MM-DD)", http.StatusBadRequest)
 			return
 		}
 
-		in := service.PersonInput{
-			FullName:  r.Form.Get("full_name"),
-			Gender:    gender,
-			BirthYear: parseIntPtr(r.Form.Get("birth_year")),
-			FatherID:  fatherID,
-			MotherID:  motherID,
-			ClanID:    clanID,
-			IsAlive:   r.Form.Get("is_alive") == "1",
-		}
-		log.Printf("[AdminCreatePerson] PersonInput: %+v", in)
-
-		// validate ages
-		if err := service.ValidateParentAge(r.Context(), db, in.BirthYear, in.FatherID, "Cha"); err != nil {
-			log.Printf("[AdminCreatePerson] Lỗi validate tuổi cha: %v", err)
-			http.Error(w, err.Error(), http.StatusBadRequest)
+		birthYear, err := parseIntPtr(r.Form.Get("birth_year"))
+		if err != nil {
+			http.Error(w, "Năm sinh không hợp lệ", http.StatusBadRequest)
 			return
 		}
-		if err := service.ValidateParentAge(r.Context(), db, in.BirthYear, in.MotherID, "Mẹ"); err != nil {
-			log.Printf("[AdminCreatePerson] Lỗi validate tuổi mẹ: %v", err)
-			http.Error(w, err.Error(), http.StatusBadRequest)
+		if birthYear == nil && birthDateLunar != nil {
+			if t, parseErr := time.Parse("2006-01-02", *birthDateLunar); parseErr == nil {
+				y := t.Year()
+				birthYear = &y
+			}
+		}
+
+		isAlive := r.Form.Get("is_alive") == "1"
+		deathDateSolar, err := parseDatePtr(r.Form.Get("death_date_solar"))
+		if err != nil {
+			http.Error(w, "Ngày mất dương lịch không hợp lệ (YYYY-MM-DD)", http.StatusBadRequest)
+			return
+		}
+		deathDateLunar, err := parseDatePtr(r.Form.Get("death_date_lunar"))
+		if err != nil {
+			http.Error(w, "Ngày mất âm lịch không hợp lệ (YYYY-MM-DD)", http.StatusBadRequest)
+			return
+		}
+		graveLocation := parseStringPtr(r.Form.Get("grave_location"))
+		if isAlive {
+			deathDateSolar = nil
+			deathDateLunar = nil
+			graveLocation = nil
+		}
+
+		in := repository.PersonInput{
+			FullName:       fullName,
+			Gender:         gender,
+			BirthYear:      birthYear,
+			BirthDateSolar: birthDateSolar,
+			BirthDateLunar: birthDateLunar,
+			FatherID:       fatherID,
+			MotherID:       motherID,
+			ClanID:         clanID,
+			IsAlive:        isAlive,
+			DeathDateSolar: deathDateSolar,
+			DeathDateLunar: deathDateLunar,
+			Address:        parseStringPtr(r.Form.Get("address")),
+			Phone:          parseStringPtr(r.Form.Get("phone")),
+			Occupation:     parseStringPtr(r.Form.Get("occupation")),
+			AvatarURL:      parseStringPtr(r.Form.Get("avatar_url")),
+			GraveLocation:  graveLocation,
+			Note:           parseStringPtr(r.Form.Get("note")),
+		}
+
+		// TODO: Thêm validation logic vào service layer
+		// ValidateParentAge, etc.
+
+		if err := h.service.Person.CreatePerson(r.Context(), in); err != nil {
+			log.Printf("Error creating person: %v", err)
+			http.Error(w, "Lỗi lưu vào cơ sở dữ liệu", http.StatusInternalServerError)
 			return
 		}
 
-		// execute insert
-		if err := service.CreatePerson(r.Context(), db, in); err != nil {
-			log.Printf("[AdminCreatePerson] Lỗi INSERT vào DB: %v", err)
-			http.Error(w, "Lỗi lưu vào cơ sở dữ liệu: "+err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		log.Printf("[AdminCreatePerson] Tạo thành công người: %q", in.FullName)
-		http.Redirect(w, r, "/admin", http.StatusFound)
+		http.Redirect(w, r, "/admin/persons/new?success=1", http.StatusSeeOther)
 	}
 }

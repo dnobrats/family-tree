@@ -1,0 +1,30 @@
+package handler
+
+import (
+	"encoding/json"
+	"net/http"
+
+	"genealogy-be/internal/service"
+)
+
+// Handler chứa tất cả dependencies cho handlers
+type Handler struct {
+	service *service.Service
+}
+
+// New tạo handler mới với service
+func New(svc *service.Service) *Handler {
+	return &Handler{service: svc}
+}
+
+// respondJSON helper để trả về JSON response
+func respondJSON(w http.ResponseWriter, status int, data interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(data)
+}
+
+// respondError helper để trả về error response
+func respondError(w http.ResponseWriter, status int, message string) {
+	respondJSON(w, status, map[string]string{"error": message})
+}

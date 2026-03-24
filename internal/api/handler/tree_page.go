@@ -8,7 +8,8 @@ import (
 //go:embed static/tree.html
 var treeFS embed.FS
 
-func TreePageHandler() http.HandlerFunc {
+// TreePageHandler hiển thị trang tree visualization
+func (h *Handler) TreePageHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		data, err := treeFS.ReadFile("static/tree.html")
 		if err != nil {

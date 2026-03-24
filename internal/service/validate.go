@@ -4,38 +4,35 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/jackc/pgx/v5/pgxpool"
+	"genealogy-be/internal/repository"
 )
 
+// ValidateParentAge kiểm tra tuổi cha/mẹ hợp lệ
 func ValidateParentAge(
 	ctx context.Context,
-	db *pgxpool.Pool,
+	repo *repository.Repository,
 	childBirthYear *int,
 	parentID *int64,
-	parentRole string, // "cha" hoặc "mẹ"
+	parentRole string, // "Cha" hoặc "Mẹ"
 ) error {
 	if childBirthYear == nil || parentID == nil {
 		return nil
 	}
 
-	var parentBirthYear *int
-	err := db.QueryRow(ctx,
-		`SELECT birth_year FROM person WHERE id=$1`,
-		*parentID,
-	).Scan(&parentBirthYear)
+	parent, err := repo.Person.GetByID(ctx, *parentID)
 	if err != nil {
-		return err
+		return fmt.Errorf("không tìm thấy %s", parentRole)
 	}
 
-	if parentBirthYear == nil {
-		return nil
+	if parent.BirthYear == nil {
+		return nil // Không có năm sinh của cha/mẹ thì bỏ qua
 	}
 
-	if *parentBirthYear >= *childBirthYear {
+	if *parent.BirthYear >= *childBirthYear {
 		return fmt.Errorf(
 			"%s sinh năm %d không thể có con sinh năm %d",
 			parentRole,
-			*parentBirthYear,
+			*parent.BirthYear,
 			*childBirthYear,
 		)
 	}

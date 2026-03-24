@@ -17,6 +17,7 @@ CREATE TABLE person (
     gender              SMALLINT NOT NULL, -- 1: nam, 2: nữ, 0: khác/không rõ
 
     birth_date_solar    DATE,
+    birth_date_lunar    DATE,
     birth_year          INT,               -- fallback nếu không biết ngày
     is_alive            BOOLEAN NOT NULL DEFAULT true,
 
@@ -33,6 +34,9 @@ CREATE TABLE person (
 
     -- Thông tin thêm
     address             TEXT,
+    phone               TEXT,
+    occupation          TEXT,
+    avatar_url          TEXT,
     grave_location      TEXT,
     note                TEXT,
 
@@ -82,3 +86,9 @@ CREATE TABLE person_import (
 ALTER TABLE clan
 ADD COLUMN parent_clan_id BIGINT;
 
+CREATE TABLE IF NOT EXISTS admin_user (
+    id              BIGSERIAL PRIMARY KEY,
+    username        TEXT NOT NULL UNIQUE,
+    password_hash   TEXT NOT NULL,
+    created_at      TIMESTAMPTZ DEFAULT now()
+);
