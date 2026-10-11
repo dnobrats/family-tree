@@ -57,7 +57,7 @@ func TestRateLimit_PerIP(t *testing.T) {
 	ok := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
-	h := RateLimit(0.0001, 2)
+	h := RateLimit(0.0001, 2)(ok)
 
 	call := func(ip string) int {
 		req := httptest.NewRequest(http.MethodGet, "/", nil)
