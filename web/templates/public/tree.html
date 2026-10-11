@@ -1,0 +1,42 @@
+{{define "content"}}
+<section class="page-head no-print">
+  <h1>Cây gia phả</h1>
+  <div class="toolbar">
+    <label class="field inline">Chi
+      <select id="clanSelect">
+        <option value="0">Toàn bộ</option>
+        {{range .Clans}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
+      </select>
+    </label>
+    <label class="field inline">Số đời
+      <input id="maxGen" type="number" min="1" max="15" value="{{if .MaxGen}}{{.MaxGen}}{{else}}5{{end}}">
+    </label>
+    <label class="field inline">Tìm tên
+      <input id="searchBox" type="search" placeholder="Nhập tên...">
+    </label>
+    <div class="toolbar-actions">
+      <button type="button" id="zoomOut" class="btn">−</button>
+      <button type="button" id="zoomIn" class="btn">+</button>
+      <button type="button" data-print class="btn primary">🖨 In</button>
+      <label class="field inline checkbox"><input id="a3" type="checkbox"> Khổ A3</label>
+    </div>
+  </div>
+</section>
+
+<div id="treeContainer" class="tree-container">
+  <div id="tree" class="tree" data-root="{{.RootID}}">
+    <p class="muted">Đang tải dữ liệu…</p>
+  </div>
+</div>
+
+<div id="popup" class="popup no-print" hidden>
+  <div class="popup-card" role="dialog" aria-modal="true" aria-labelledby="pName">
+    <button class="popup-close" id="popupClose" type="button" aria-label="Đóng">&times;</button>
+    <h3 id="pName"></h3>
+    <div id="pInfo"></div>
+    <p><a id="pLink" class="btn" href="#">Xem trang chi tiết →</a></p>
+  </div>
+</div>
+
+<script src="/static/js/tree.js" defer></script>
+{{end}}

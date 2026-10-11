@@ -1,0 +1,16 @@
+{{define "content"}}
+<div class="card narrow">
+  <h1>Đăng nhập quản trị</h1>
+  {{if .Error}}<div class="alert">{{.Error}}</div>{{end}}
+  <form method="post" action="/admin/login">
+    <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+    <label class="field">Tên đăng nhập
+      <input name="username" autocomplete="username" required autofocus>
+    </label>
+    <label class="field">Mật khẩu
+      <input type="password" name="password" autocomplete="current-password" required>
+    </label>
+    <button type="submit" class="btn primary">Đăng nhập</button>
+  </form>
+</div>
+{{end}}

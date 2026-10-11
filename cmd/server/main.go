@@ -1,52 +1,115 @@
+// Command server runs the family tree web application.
+//
+// Flow: load config -> connect to Postgres -> apply migrations -> wire the
+// service and HTTP layers -> serve (with graceful shutdown).
 package main
 
 import (
+	"context"
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
-	"genealogy-be/internal/api"
-	"genealogy-be/internal/config"
-	"genealogy-be/internal/db"
-	"genealogy-be/internal/middleware"
+	"familytree/internal/auth"
+	"familytree/internal/config"
+	"familytree/internal/database"
+	httpx "familytree/internal/http"
+	"familytree/internal/repository"
+	"familytree/internal/service"
+	"familytree/migrations"
+	"familytree/web"
 )
 
 func main() {
-	// Load config từ environment variables
-	cfg, err := config.LoadFromEnv()
+	migrateOnly := flag.Bool("migrate", false, "apply database migrations and exit")
+	healthcheck := flag.Bool("healthcheck", false, "check /healthz and exit (used by docker healthcheck)")
+	flag.Parse()
+
+	cfg, err := config.Load()
 	if err != nil {
-		log.Fatalf("Failed to load config: %v", err)
+		log.Fatalf("config: %v", err)
 	}
 
-	// Kết nối database
-	dbConfig := map[string]string{
-		"host":     cfg.Database.Host,
-		"port":     cfg.Database.Port,
-		"user":     cfg.Database.User,
-		"password": cfg.Database.Password,
-		"name":     cfg.Database.Name,
-		"schema":   cfg.Database.Schema,
+	if *healthcheck {
+		os.Exit(runHealthcheck(cfg.Port))
 	}
 
-	pool, err := db.NewPostgres(dbConfig)
+	ctx := context.Background()
+
+	pool, err := database.Connect(ctx, cfg.DatabaseURL)
 	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
+		log.Fatalf("database: %v", err)
 	}
 	defer pool.Close()
+	log.Println("connected to database")
 
-	log.Println("✅ Connected to database successfully")
-
-	// Khởi tạo router với dependency injection
-	router := api.NewRouter(pool)
-	
-	// Apply rate limiting middleware
-	handler := middleware.RateLimit(5)(router)
-
-	// Start server
-	addr := fmt.Sprintf(":%d", cfg.Server.Port)
-	log.Printf("🚀 Server listening on %s", addr)
-	
-	if err := http.ListenAndServe(addr, handler); err != nil {
-		log.Fatalf("Server failed: %v", err)
+	if err := database.Migrate(ctx, pool, migrations.FS); err != nil {
+		log.Fatalf("migrate: %v", err)
 	}
+	log.Println("migrations applied")
+
+	if *migrateOnly {
+		return
+	}
+
+	repo := repository.New(pool)
+	svc := service.New(repo.Person, repo.Clan, repo.Spouse, repo.Admin)
+
+	if err := svc.EnsureBootstrapAdmin(ctx, cfg.AdminUsername, cfg.AdminPassword); err != nil {
+		log.Printf("bootstrap admin skipped: %v", err)
+	}
+
+	renderer, err := httpx.NewRenderer(web.FS)
+	if err != nil {
+		log.Fatalf("templates: %v", err)
+	}
+
+	authMgr := auth.NewManager(cfg.SessionSecret, cfg.SessionTTL)
+	server := httpx.NewServer(svc, authMgr, cfg, renderer)
+
+	httpServer := &http.Server{
+		Addr:              fmt.Sprintf(":%d", cfg.Port),
+		Handler:           server.Routes(),
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      60 * time.Second,
+		IdleTimeout:       120 * time.Second,
+	}
+
+	go func() {
+		log.Printf("listening on %s", httpServer.Addr)
+		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("server: %v", err)
+		}
+	}()
+
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+	<-stop
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := httpServer.Shutdown(shutdownCtx); err != nil {
+		log.Printf("shutdown: %v", err)
+	}
+	log.Println("stopped")
+}
+
+// runHealthcheck requests /healthz on localhost and returns a process exit code.
+func runHealthcheck(port int) int {
+	client := &http.Client{Timeout: 3 * time.Second}
+	resp, err := client.Get(fmt.Sprintf("http://127.0.0.1:%d/healthz", port))
+	if err != nil {
+		return 1
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return 1
+	}
+	return 0
 }

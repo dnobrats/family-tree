@@ -1,40 +1,45 @@
 services:
-  postgres:
-    image: postgres:18
-    container_name: trangiatien-db
+  db:
+    image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_DB: tran
-      POSTGRES_USER: tran
-      POSTGRES_PASSWORD: TranGiaTien@8386
+      POSTGRES_USER: ${POSTGRES_USER:-family}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required (see .env.example)}
+      POSTGRES_DB: ${POSTGRES_DB:-family}
     volumes:
-      - pgdata:/var/lib/postgresql
-    ports:
-      - "5432:5432"
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-family} -d ${POSTGRES_DB:-family}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    # Uncomment to reach postgres from the host:
+    # ports:
+    #   - "5432:5432"
 
-  backend:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: trangiatien-be
+  app:
+    build: .
     restart: unless-stopped
     depends_on:
-      - postgres
+      db:
+        condition: service_healthy
     environment:
-      DB_HOST: postgres
-      DB_PORT: "5432"
-      DB_USER: tran
-      DB_PASSWORD: TranGiaTien@8386
-      DB_NAME: tran
-      DB_SCHEMA: tran
+      SERVER_PORT: "8080"
+      DATABASE_URL: postgres://${POSTGRES_USER:-family}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-family}?sslmode=disable
+      SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET is required (see .env.example)}
+      COOKIE_SECURE: ${COOKIE_SECURE:-0}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
     ports:
       - "8080:8080"
-    deploy:
-      resources:
-        limits:
-          cpus: "0.50"
-          memory: 256M
+    # Migrations run automatically on startup. Health check uses the app binary
+    # itself because the distroless image has no shell/curl.
+    healthcheck:
+      test: ["CMD", "/app/server", "-healthcheck"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 5s
 
 volumes:
   pgdata:
-

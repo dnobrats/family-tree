@@ -1,0 +1,42 @@
+{{define "content"}}
+<section class="page-head">
+  <h1>Danh sách thành viên</h1>
+  <p><a class="btn primary" href="/admin/persons/new">➕ Thêm người mới</a>
+     <span class="muted">Tổng: {{.Page.Total}}</span></p>
+</section>
+
+<div class="table-wrap">
+  <table class="table">
+    <thead>
+      <tr><th>ID</th><th>Họ tên</th><th>Giới tính</th><th>Năm sinh</th><th>Trạng thái</th><th class="col-actions">Thao tác</th></tr>
+    </thead>
+    <tbody>
+      {{range .Page.Items}}
+      <tr>
+        <td>{{.ID}}</td>
+        <td><a href="/persons/{{.ID}}">{{.FullName}}</a></td>
+        <td>{{genderLabel .Gender}}</td>
+        <td>{{deref .BirthYear}}</td>
+        <td>{{if .IsAlive}}Còn sống{{else}}Đã mất{{end}}</td>
+        <td class="actions">
+          <a class="btn sm" href="/admin/persons/{{.ID}}/edit">Sửa</a>
+          <a class="btn sm" href="/admin/persons/{{.ID}}/spouses">Vợ/Chồng</a>
+          <button class="btn sm danger" type="button"
+                  data-delete-person="{{.ID}}" data-name="{{.FullName}}">Xóa</button>
+        </td>
+      </tr>
+      {{else}}
+      <tr><td colspan="6" class="muted">Chưa có thành viên nào.</td></tr>
+      {{end}}
+    </tbody>
+  </table>
+</div>
+
+{{if gt .Page.TotalPages 1}}
+<nav class="pagination no-print">
+  {{if gt .Page.Page 1}}<a class="btn sm" href="?page={{dec .Page.Page}}">← Trước</a>{{else}}<span class="btn sm disabled">← Trước</span>{{end}}
+  <span class="muted">Trang {{.Page.Page}} / {{.Page.TotalPages}}</span>
+  {{if lt .Page.Page .Page.TotalPages}}<a class="btn sm" href="?page={{inc .Page.Page}}">Sau →</a>{{else}}<span class="btn sm disabled">Sau →</span>{{end}}
+</nav>
+{{end}}
+{{end}}

@@ -1,0 +1,102 @@
+{{define "content"}}
+<div class="card">
+  <h1>{{if .IsEdit}}Sửa thông tin{{else}}Thêm người mới{{end}}</h1>
+  {{if .Error}}<div class="alert">{{.Error}}</div>{{end}}
+
+  <form method="post" action="{{if .IsEdit}}/admin/persons/{{.PersonID}}{{else}}/admin/persons/new{{end}}">
+    <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+
+    <div class="form-grid">
+      <label class="field span-2">Họ tên *
+        <input name="full_name" value="{{.Values.FullName}}" required maxlength="200">
+      </label>
+
+      <label class="field">Giới tính
+        <select name="gender">
+          <option value="1" {{if eq .Values.Gender "1"}}selected{{end}}>Nam</option>
+          <option value="2" {{if eq .Values.Gender "2"}}selected{{end}}>Nữ</option>
+          <option value="0" {{if eq .Values.Gender "0"}}selected{{end}}>Khác/không rõ</option>
+        </select>
+      </label>
+
+      <label class="field">Năm sinh
+        <input name="birth_year" type="number" min="1" max="9999" value="{{.Values.BirthYear}}">
+      </label>
+
+      <label class="field">Ngày sinh (dương lịch)
+        <input name="birth_date_solar" type="date" value="{{.Values.BirthDateSolar}}">
+      </label>
+
+      <label class="field">Ngày sinh (âm lịch)
+        <input name="birth_date_lunar" type="text" placeholder="VD: 15/08/Canh Tý" value="{{.Values.BirthDateLunar}}">
+      </label>
+
+      <label class="field">Cha (có thể để trống)
+        <select name="father_id">
+          <option value="0">— Không rõ —</option>
+          {{range .People}}<option value="{{.ID}}" {{if eq (printf "%d" .ID) $.Values.FatherID}}selected{{end}}>{{.FullName}}</option>{{end}}
+        </select>
+      </label>
+
+      <label class="field">Mẹ (có thể để trống)
+        <select name="mother_id">
+          <option value="0">— Không rõ —</option>
+          {{range .People}}<option value="{{.ID}}" {{if eq (printf "%d" .ID) $.Values.MotherID}}selected{{end}}>{{.FullName}}</option>{{end}}
+        </select>
+      </label>
+
+      <label class="field">Chi (có thể để trống)
+        <select name="clan_id">
+          <option value="0">— Không thuộc chi nào —</option>
+          {{range .Clans}}<option value="{{.ID}}" {{if eq (printf "%d" .ID) $.Values.ClanID}}selected{{end}}>{{.Name}}</option>{{end}}
+        </select>
+      </label>
+
+      <label class="field checkbox span-2">
+        <input type="checkbox" id="is_alive" name="is_alive" value="1" {{if .Values.IsAlive}}checked{{end}}>
+        Còn sống
+      </label>
+
+      <div id="death_fields" class="form-section span-2">
+        <label class="field">Năm mất
+          <input name="death_year" type="number" min="1" max="9999" value="{{.Values.DeathYear}}">
+        </label>
+        <label class="field">Ngày mất (dương lịch)
+          <input name="death_date_solar" type="date" value="{{.Values.DeathDateSolar}}">
+        </label>
+        <label class="field">Ngày mất (âm lịch)
+          <input name="death_date_lunar" type="text" value="{{.Values.DeathDateLunar}}">
+        </label>
+        <label class="field">Nơi an táng
+          <input name="grave_location" value="{{.Values.GraveLocation}}">
+        </label>
+      </div>
+
+      <label class="field">Nghề nghiệp
+        <input name="occupation" value="{{.Values.Occupation}}">
+      </label>
+
+      <label class="field">Điện thoại
+        <input name="phone" value="{{.Values.Phone}}">
+      </label>
+
+      <label class="field">Địa chỉ
+        <input name="address" value="{{.Values.Address}}">
+      </label>
+
+      <label class="field">Ảnh đại diện (URL)
+        <input name="avatar_url" value="{{.Values.AvatarURL}}">
+      </label>
+
+      <label class="field span-2">Ghi chú
+        <textarea name="note" rows="3">{{.Values.Note}}</textarea>
+      </label>
+    </div>
+
+    <div class="form-actions">
+      <button type="submit" class="btn primary">Lưu</button>
+      <a class="btn" href="/admin/persons">← Quay về danh sách</a>
+    </div>
+  </form>
+</div>
+{{end}}

@@ -2,105 +2,89 @@ package service
 
 import (
 	"context"
-	"errors"
-	"fmt"
 
-	"genealogy-be/internal/model"
-	"genealogy-be/internal/repository"
-
-	"github.com/jackc/pgx/v5"
+	"familytree/internal/domain"
 )
 
-type GenealogyService struct {
-	repo *repository.Repository
-}
-
-func NewGenealogyService(repo *repository.Repository) *GenealogyService {
-	return &GenealogyService{repo: repo}
-}
-
-// GetTree lấy cây gia phả từ root person
-func (s *GenealogyService) GetTree(ctx context.Context, rootID int64) (*model.TreeResponse, error) {
-	nodes, err := s.repo.Person.GetTreeFromRoot(ctx, rootID)
-	if err != nil {
-		return nil, fmt.Errorf("get tree from root: %w", err)
-	}
-
-	if len(nodes) == 0 {
-		return nil, errors.New("root person not found")
-	}
-
-	return &model.TreeResponse{
-		RootID: rootID,
-		Nodes:  nodes,
-	}, nil
-}
-
-// GetClanTree lấy cây gia phả theo chi
-func (s *GenealogyService) GetClanTree(ctx context.Context, clanID int64) (*model.ClanTreeResponse, error) {
-	clan, err := s.repo.Clan.GetByID(ctx, clanID)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, errors.New("clan not found")
+// GetTree builds the family tree from a root person. If rootID <= 0 the
+// earliest ancestor is used. maxGen caps the number of generations rendered.
+func (s *Service) GetTree(ctx context.Context, rootID int64, maxGen int) (*domain.TreeNode, error) {
+	if rootID <= 0 {
+		root, err := s.persons.RootCandidate(ctx)
+		if err != nil {
+			return nil, err
 		}
-		return nil, fmt.Errorf("get clan: %w", err)
+		rootID = root.ID
 	}
-
-	nodes, err := s.repo.Person.GetTreeFromRoot(ctx, clan.RootPersonID)
-	if err != nil {
-		return nil, fmt.Errorf("get clan tree: %w", err)
-	}
-
-	return &model.ClanTreeResponse{
-		Clan:  *clan,
-		Nodes: nodes,
-	}, nil
+	return s.buildNode(ctx, rootID, 1, clampGen(maxGen), map[int64]bool{})
 }
 
-// GetPersonDetail lấy chi tiết thông tin 1 người
-func (s *GenealogyService) GetPersonDetail(ctx context.Context, personID int64) (*model.PersonDetail, error) {
-	detail, err := s.repo.Person.GetByID(ctx, personID)
+// GetClanTree builds the tree rooted at the clan's head person.
+func (s *Service) GetClanTree(ctx context.Context, clanID int64, maxGen int) (*domain.Clan, *domain.TreeNode, error) {
+	clan, err := s.clans.GetByID(ctx, clanID)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, errors.New("person not found")
-		}
-		return nil, fmt.Errorf("get person detail: %w", err)
+		return nil, nil, err
+	}
+	if clan.RootPersonID == nil {
+		return nil, nil, domain.Invalid("Chi này chưa có người đứng đầu")
+	}
+	node, err := s.buildNode(ctx, *clan.RootPersonID, 1, clampGen(maxGen), map[int64]bool{})
+	if err != nil {
+		return nil, nil, err
+	}
+	return clan, node, nil
+}
+
+// buildNode recursively builds one node. visited prevents infinite recursion if
+// the data ever contains a cycle.
+func (s *Service) buildNode(ctx context.Context, id int64, gen, maxGen int, visited map[int64]bool) (*domain.TreeNode, error) {
+	if visited[id] {
+		return nil, nil
+	}
+	visited[id] = true
+
+	person, err := s.persons.GetBrief(ctx, id)
+	if err != nil {
+		return nil, err
 	}
 
-	// Chuyển đổi từ repository.PersonDetail sang model.PersonDetail
-	result := &model.PersonDetail{
-		ID:             detail.ID,
-		FullName:       detail.FullName,
-		Gender:         detail.Gender,
-		BirthYear:      detail.BirthYear,
-		BirthDateSolar: detail.BirthDateSolar,
-		BirthDateLunar: detail.BirthDateLunar,
-		IsAlive:        detail.IsAlive,
-		DeathDateSolar: detail.DeathDateSolar,
-		DeathDateLunar: detail.DeathDateLunar,
-		FatherID:       detail.FatherID,
-		MotherID:       detail.MotherID,
-		Address:        detail.Address,
-		Phone:          detail.Phone,
-		Occupation:     detail.Occupation,
-		AvatarURL:      detail.AvatarURL,
-		GraveLocation:  detail.GraveLocation,
-		Note:           detail.Note,
+	node := &domain.TreeNode{
+		Person:     *person,
+		Generation: gen,
+		Children:   []*domain.TreeNode{},
 	}
 
-	// Nếu có clan_id, lấy thông tin clan
-	if detail.ClanID != nil {
-		clan, err := s.repo.Clan.GetByID(ctx, *detail.ClanID)
-		if err == nil {
-			result.Clan = clan
+	// Attach the first partner to display as a couple.
+	if spouses, err := s.spouses.ListByPerson(ctx, id); err == nil && len(spouses) > 0 {
+		if partner, err := s.persons.GetBrief(ctx, spouses[0].PartnerID); err == nil {
+			node.Spouse = partner
 		}
 	}
 
-	// Lấy danh sách vợ/chồng
-	spouses, err := s.repo.Spouse.GetSpousesByPersonID(ctx, personID)
-	if err == nil && len(spouses) > 0 {
-		result.Spouses = spouses
+	if gen < maxGen {
+		children, err := s.persons.ChildrenOf(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		for _, child := range children {
+			sub, err := s.buildNode(ctx, child.ID, gen+1, maxGen, visited)
+			if err != nil {
+				return nil, err
+			}
+			if sub != nil {
+				node.Children = append(node.Children, sub)
+			}
+		}
 	}
+	return node, nil
+}
 
-	return result, nil
+func clampGen(n int) int {
+	if n < 1 {
+		return 5
+	}
+	if n > 15 {
+		return 15
+	}
+	return n
 }

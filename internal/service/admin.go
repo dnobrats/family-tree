@@ -2,42 +2,54 @@ package service
 
 import (
 	"context"
-	"errors"
-	"fmt"
-
-	"genealogy-be/internal/repository"
+	"strings"
 
 	"golang.org/x/crypto/bcrypt"
+
+	"familytree/internal/domain"
 )
 
-type AdminService struct {
-	repo *repository.Repository
-}
-
-func NewAdminService(repo *repository.Repository) *AdminService {
-	return &AdminService{repo: repo}
-}
-
-// Login xác thực admin user
-func (s *AdminService) Login(ctx context.Context, username, password string) error {
-	hash, err := s.repo.Admin.GetPasswordHash(ctx, username)
+// Authenticate checks a username/password pair. The same generic message is
+// returned for both "unknown user" and "wrong password".
+func (s *Service) Authenticate(ctx context.Context, username, password string) error {
+	admin, err := s.admins.GetByUsername(ctx, strings.TrimSpace(username))
 	if err != nil {
-		return errors.New("invalid username or password")
+		return domain.Invalid("Tên đăng nhập hoặc mật khẩu không đúng")
 	}
-
-	if err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)); err != nil {
-		return errors.New("invalid username or password")
+	if bcrypt.CompareHashAndPassword([]byte(admin.PasswordHash), []byte(password)) != nil {
+		return domain.Invalid("Tên đăng nhập hoặc mật khẩu không đúng")
 	}
-
 	return nil
 }
 
-// ValidateSession kiểm tra session có hợp lệ không
-func (s *AdminService) ValidateSession(sessionToken string) error {
-	// TODO: Implement proper session validation
-	// Hiện tại chỉ check token có tồn tại không
-	if sessionToken == "" {
-		return fmt.Errorf("session token is empty")
+// SetAdminPassword creates the account or replaces its password.
+func (s *Service) SetAdminPassword(ctx context.Context, username, password string) error {
+	username = strings.TrimSpace(username)
+	if username == "" {
+		return domain.Invalid("Tên đăng nhập không được để trống")
 	}
-	return nil
+	if len(password) < 6 {
+		return domain.Invalid("Mật khẩu phải có ít nhất 6 ký tự")
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	return s.admins.Upsert(ctx, username, string(hash))
+}
+
+// EnsureBootstrapAdmin creates the first admin from env config, but only when
+// no admin exists yet. Safe to call on every startup.
+func (s *Service) EnsureBootstrapAdmin(ctx context.Context, username, password string) error {
+	if username == "" || password == "" {
+		return nil
+	}
+	n, err := s.admins.Count(ctx)
+	if err != nil {
+		return err
+	}
+	if n > 0 {
+		return nil
+	}
+	return s.SetAdminPassword(ctx, username, password)
 }

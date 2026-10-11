@@ -1,0 +1,15 @@
+{{define "content"}}
+<h1>Quản trị gia phả</h1>
+
+<div class="stats">
+  <div class="stat"><span class="stat-num">{{.PersonCount}}</span><span class="stat-label">Thành viên</span></div>
+  <div class="stat"><span class="stat-num">{{.ClanCount}}</span><span class="stat-label">Chi</span></div>
+</div>
+
+<div class="menu-grid">
+  <a class="menu-card" href="/admin/persons"><span class="menu-icon">📋</span>Danh sách thành viên</a>
+  <a class="menu-card" href="/admin/persons/new"><span class="menu-icon">➕</span>Thêm người mới</a>
+  <a class="menu-card" href="/admin/clans"><span class="menu-icon">🏛️</span>Quản lý chi</a>
+  <a class="menu-card" href="/tree"><span class="menu-icon">🌳</span>Xem cây gia phả</a>
+</div>
+{{end}}

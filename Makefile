@@ -1,43 +1,45 @@
-.PHONY: build run dev test clean
+APP := familytree
 
-# Build binary
-build:
-	go build -o server ./cmd/server
+.PHONY: help build run migrate seed createadmin test fmt vet lint tidy docker-up docker-down docker-logs
 
-# Run server
-run: build
-	./server
+help: ## Show available commands
+	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
 
-# Development mode với hot reload (cần air: go install github.com/cosmtrek/air@latest)
-dev:
-	air
+build: ## Build the server binary into ./bin
+	CGO_ENABLED=0 go build -o bin/server ./cmd/server
 
-# Run tests
-test:
-	go test -v ./...
+run: ## Run the server locally
+	go run ./cmd/server
 
-# Clean build artifacts
-clean:
-	rm -f server
+migrate: ## Apply database migrations then exit
+	go run ./cmd/server -migrate
 
-# Format code
-fmt:
-	go fmt ./...
+seed: ## Load demo data (needs psql + DATABASE_URL)
+	psql "$(DATABASE_URL)" -f scripts/seed_demo.sql
 
-# Run linter (cần golangci-lint)
-lint:
+createadmin: ## Create/update admin user: make createadmin USER=admin PASS=secret
+	go run ./cmd/createadmin -username "$(USER)" -password "$(PASS)"
+
+test: ## Run all tests
+	go test ./...
+
+fmt: ## Format all Go files
+	gofmt -w .
+
+vet: ## Static analysis
+	go vet ./...
+
+lint: ## Run golangci-lint (if installed)
 	golangci-lint run
 
-# Tidy dependencies
-tidy:
+tidy: ## Sync go.mod / go.sum
 	go mod tidy
 
-# Generate password hash (sử dụng genpass.go)
-genpass:
-	go run genpass.go
+docker-up: ## Build and start the docker stack
+	docker compose up -d --build
 
-# Reset database sequences (sau khi xóa records)
-reset-sequences:
-	@echo "🔄 Resetting database sequences..."
-	@psql -h $(DB_HOST) -p $(DB_PORT) -U $(DB_USER) -d $(DB_NAME) -f migrations/reset_all_sequences.sql
-	@echo "✅ Done!"
+docker-down: ## Stop the docker stack
+	docker compose down
+
+docker-logs: ## Follow app logs
+	docker compose logs -f app

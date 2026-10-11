@@ -1,30 +1,42 @@
+// Package repository contains all SQL. Each store maps database rows to domain
+// entities. No business rules live here — that is the service layer's job.
 package repository
 
 import (
+	"errors"
+
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"familytree/internal/domain"
 )
 
-// Repository chứa tất cả các repository con
+// Repository groups the individual stores.
 type Repository struct {
-	Person *PersonRepository
-	Clan   *ClanRepository
-	Admin  *AdminRepository
-	Spouse *SpouseRepository
+	Person *PersonRepo
+	Clan   *ClanRepo
+	Spouse *SpouseRepo
+	Admin  *AdminRepo
 }
 
-// New tạo repository mới với database pool
-func New(db *pgxpool.Pool) *Repository {
+// New builds every store on top of one shared connection pool.
+func New(pool *pgxpool.Pool) *Repository {
 	return &Repository{
-		Person: NewPersonRepository(db),
-		Clan:   NewClanRepository(db),
-		Admin:  NewAdminRepository(db),
-		Spouse: NewSpouseRepository(db),
+		Person: NewPersonRepo(pool),
+		Clan:   NewClanRepo(pool),
+		Spouse: NewSpouseRepo(pool),
+		Admin:  NewAdminRepo(pool),
 	}
 }
 
-// Querier interface cho testing (không cần thiết lúc này, có thể xóa hoặc comment)
-// type Querier interface {
-// 	Exec(ctx context.Context, sql string, arguments ...interface{}) error
-// 	Query(ctx context.Context, sql string, args ...interface{}) error
-// 	QueryRow(ctx context.Context, sql string, args ...interface{}) error
-// }
+// scanner is satisfied by both pgx.Row and pgx.Rows.
+type scanner interface{ Scan(dest ...any) error }
+
+// mapError converts a PostgreSQL unique-violation into domain.ErrConflict.
+func mapError(err error) error {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+		return domain.ErrConflict
+	}
+	return err
+}

@@ -1,188 +1,104 @@
-# Genealogy Backend - Hệ thống quản lý gia phả
+# Gia phả dòng họ — Family Tree
 
-Backend API cho hệ thống tra cứu và quản lý gia phả dòng họ, được xây dựng với Go và PostgreSQL.
+Ứng dụng web nội bộ để **tra cứu và quản lý gia phả dòng họ**: xem cây gia phả,
+tra cứu từng người, quản lý theo chi, và in ra giấy (A4/A3).
+
+- **Backend:** Go (thư viện chuẩn `net/http` + `html/template`)
+- **Database:** PostgreSQL
+- **Frontend:** HTML server-rendered + CSS/JS nhúng trong binary (không cần build frontend)
+- **Đóng gói:** một binary duy nhất; chạy bằng Docker rất nhẹ (distroless)
+
+---
+
+## Chạy nhanh bằng Docker
+
+```bash
+cp .env.example .env
+# Sửa .env: đặt POSTGRES_PASSWORD và SESSION_SECRET (openssl rand -hex 32)
+docker compose up -d --build
+```
+
+Mở http://localhost:8080 — migration **tự chạy** khi server khởi động.
+
+Tạo tài khoản admin đầu tiên (chọn một cách):
+
+```bash
+# Cách 1: biến môi trường trong .env (tự tạo nếu chưa có admin), rồi docker compose up lại
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=mat-khau
+
+# Cách 2: chạy lệnh trong container
+docker compose exec app /app/createadmin -username admin -password "mat-khau"
+```
+
+## Chạy local (cần Go 1.24+ và PostgreSQL)
+
+```bash
+cp .env.example .env      # rồi điền DATABASE_URL và SESSION_SECRET
+make tidy                 # tải dependencies
+make migrate              # tạo bảng
+make seed                 # (tuỳ chọn) nạp dữ liệu demo ~5 đời
+make createadmin USER=admin PASS=mat-khau
+make run                  # http://localhost:8080
+```
+
+---
+
+## Lệnh thường dùng
+
+| Lệnh | Việc |
+|------|------|
+| `make run` | Chạy server |
+| `make build` | Build binary vào `./bin` |
+| `make migrate` | Chạy migration rồi thoát |
+| `make seed` | Nạp dữ liệu demo |
+| `make createadmin USER=.. PASS=..` | Tạo/đổi mật khẩu admin |
+| `make test` | Chạy toàn bộ test |
+| `make fmt` / `make vet` / `make lint` | Định dạng / kiểm tra tĩnh |
+| `docker compose up -d --build` | Dựng toàn bộ stack |
+
+---
+
+## Cấu trúc (tóm tắt)
+
+```
+cmd/            điểm khởi chạy (server, createadmin)
+internal/       mã nguồn ứng dụng (domain, service, repository, http, auth, config, database)
+migrations/     schema SQL, chạy tự động (chỉ thêm file mới, không sửa file cũ)
+web/            templates + css + js (nhúng vào binary)
+scripts/        script tiện ích (seed demo)
+docs/           tài liệu kiến trúc & nghiệp vụ
+```
+
+> Muốn sửa nhanh một thứ gì đó? Xem bảng "Muốn đổi X → sửa file nào" trong
+> [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Ý nghĩa dữ liệu và nghiệp vụ
+> nằm ở [`docs/DOMAIN.md`](docs/DOMAIN.md).
+
+---
 
 ## Tính năng
 
-- 🌳 Xem cây gia phả từ root person
-- 👥 Tra cứu thông tin chi tiết từng người
-- 🏛️ Quản lý theo chi (clan)
-- 🔐 Admin panel để thêm/sửa thông tin
-- ✅ Validation tuổi cha/mẹ hợp lệ
+- Cây gia phả dạng sơ đồ, tra cứu tên, giới hạn số đời, chọn theo chi, thu gọn nhánh.
+- Trang chi tiết từng người: thông tin, cha mẹ, vợ/chồng, con cái.
+- Quản trị (cần đăng nhập):
+  - Thêm / sửa / xóa thành viên (cha mẹ **không bắt buộc** → tạo được thuỷ tổ).
+  - Ghi nhận quan hệ vợ/chồng (hai chiều, gồm dâu/rể).
+  - Quản lý chi (tạo/sửa/xóa, chọn người đứng đầu).
+- Giao diện responsive (điện thoại & máy tính), **in được A4/A3** (chọn khổ ở trang cây).
 
-## Kiến trúc
+## Bảo mật (mức cơ bản, đủ cho nội bộ)
 
-Dự án tuân theo **Clean Architecture** với các layer rõ ràng:
+- Mật khẩu hash bằng **bcrypt**; session cookie ký **HMAC-SHA256** (HttpOnly, SameSite=Lax).
+- **CSRF** double-submit cho mọi POST.
+- **Rate limit theo IP** (chặt hơn ở `/admin/login`).
+- Output tự escape (`html/template`) nên chống XSS; SQL dùng tham số.
+- `SESSION_SECRET` là bắt buộc — server **không khởi động** nếu thiếu.
 
-```
-┌─────────────────────────────────────────────┐
-│           HTTP Handlers                      │
-│  (Nhận request, trả response)               │
-└──────────────┬──────────────────────────────┘
-               │
-┌──────────────▼──────────────────────────────┐
-│           Service Layer                      │
-│  (Business logic, validation)               │
-└──────────────┬──────────────────────────────┘
-               │
-┌──────────────▼──────────────────────────────┐
-│         Repository Layer                     │
-│  (Data access, SQL queries)                 │
-└──────────────┬──────────────────────────────┘
-               │
-┌──────────────▼──────────────────────────────┐
-│           Database (PostgreSQL)              │
-└─────────────────────────────────────────────┘
-```
+> Secrets (`SESSION_SECRET`, mật khẩu DB) nằm trong `.env` và **đã được gitignore**.
+> Chỉ `.env.example` (không chứa giá trị thật) được commit.
 
-## Cấu trúc thư mục
+## Ghi chú kỹ thuật
 
-```
-.
-├── cmd/server/              # Entry point
-├── internal/
-│   ├── config/             # Configuration management
-│   ├── db/                 # Database connection
-│   ├── repository/         # Data access layer
-│   ├── service/            # Business logic layer
-│   ├── api/                # HTTP routing
-│   │   └── handler/        # HTTP handlers
-│   ├── middleware/         # HTTP middlewares
-│   └── model/              # Domain models
-├── config/                 # Config files
-├── .env.example            # Environment variables template
-└── Makefile               # Build commands
-```
-
-Chi tiết về refactoring xem tại [REFACTORING.md](./REFACTORING.md)
-
-## Yêu cầu
-
-- Go 1.24+
-- PostgreSQL 12+
-
-## Cài đặt
-
-1. Clone repository:
-```bash
-git clone <repo-url>
-cd genealogy-be
-```
-
-2. Copy và cấu hình environment variables:
-```bash
-cp .env.example .env
-# Sửa file .env với thông tin database của bạn
-```
-
-3. Khởi tạo database:
-```bash
-psql -U your_user -d your_database -f migrations/init.sql
-```
-
-4. Build và chạy:
-```bash
-make build
-make run
-```
-
-Hoặc development mode với hot reload:
-```bash
-make dev
-```
-
-## API Endpoints
-
-### Public API (Read-only)
-
-- `GET /api/tree?root={id}` - Lấy cây gia phả từ root person
-- `GET /api/clans/{id}/tree` - Lấy cây gia phả theo chi
-- `GET /api/persons/{id}` - Lấy chi tiết thông tin 1 người
-
-### Admin API (Protected)
-
-- `GET /admin/login` - Trang đăng nhập
-- `POST /admin/login` - Xử lý đăng nhập
-- `GET /admin` - Dashboard
-- `GET /admin/persons/new` - Form thêm người mới
-- `POST /admin/persons/new` - Tạo người mới
-- `GET /admin/persons/{id}` - Form sửa thông tin
-- `POST /admin/persons/{id}` - Cập nhật thông tin
-
-### Public Pages
-
-- `GET /tree` - Trang visualization cây gia phả
-- `GET /docs` - API documentation
-
-## Development
-
-### Tạo admin user
-
-```bash
-# Generate password hash
-make genpass
-# Nhập password, copy hash
-
-# Insert vào database
-psql -U your_user -d your_database
-INSERT INTO admin_user (username, password_hash) VALUES ('admin', 'hash_từ_genpass');
-```
-
-### Reset ID sequences (sau khi xóa người)
-
-Nếu bạn xóa nhiều người và muốn ID tiếp tục từ số gần nhất:
-
-```bash
-# Cách 1: Dùng SQL script
-psql -U your_user -d your_database -f migrations/reset_all_sequences.sql
-
-# Cách 2: Dùng Makefile (cần set env vars trước)
-make reset-sequences
-```
-
-Xem chi tiết tại [RESET_SEQUENCES.md](./RESET_SEQUENCES.md)
-
-### Run tests
-
-```bash
-make test
-```
-
-### Format code
-
-```bash
-make fmt
-```
-
-### Lint code
-
-```bash
-make lint
-```
-
-## Docker
-
-Build và chạy với Docker:
-
-```bash
-docker-compose up -d
-```
-
-## Roadmap
-
-- [ ] Unit tests và integration tests
-- [ ] JWT authentication thay vì cookie đơn giản
-- [ ] API documentation với Swagger
-- [ ] Caching với Redis
-- [ ] Structured logging
-- [ ] Metrics và monitoring
-- [ ] Database migrations tool
-- [ ] GraphQL API (optional)
-
-## License
-
-MIT
-
-## Đóng góp
-
-Pull requests are welcome! Đối với thay đổi lớn, vui lòng mở issue trước để thảo luận.
+- Migration được **nhúng vào binary** và ghi vào bảng `schema_migrations`; thêm schema = thêm file `migrations/000N_*.sql`.
+- Cây gia phả được **dựng lồng nhau ở Go** (`internal/service/genealogy.go`); JS chỉ render.
+- Ảnh đại diện dùng URL (`avatar_url`), chưa có upload.

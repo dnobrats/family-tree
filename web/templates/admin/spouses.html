@@ -1,0 +1,43 @@
+{{define "content"}}
+<div class="card">
+  <h1>Vợ/Chồng của {{.Person.FullName}}</h1>
+  <p><a class="btn" href="/admin/persons">← Quay về danh sách</a></p>
+
+  <h2>Danh sách hiện tại</h2>
+  {{if .Spouses}}
+    <ul class="list">
+      {{range .Spouses}}
+      <li class="list-item">
+        <span><a href="/persons/{{.PartnerID}}">{{.PartnerName}}</a>{{if .MarriageYear}} — kết hôn {{deref .MarriageYear}}{{end}}</span>
+        <button class="btn sm danger" type="button" data-delete-spouse="{{.ID}}">Xóa</button>
+      </li>
+      {{end}}
+    </ul>
+  {{else}}
+    <p class="muted">Chưa có thông tin vợ/chồng.</p>
+  {{end}}
+
+  <h2>Thêm vợ/chồng</h2>
+  <p class="muted">Chọn một người đã có trong hệ thống (người ngoài họ hãy thêm ở mục “Thêm người mới” trước).</p>
+  <form method="post" action="/admin/persons/{{.Person.ID}}/spouses">
+    <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+    <div class="form-grid">
+      <label class="field span-2">Vợ/Chồng *
+        <select name="partner_id" required>
+          <option value="">— Chọn —</option>
+          {{range .People}}{{if ne .ID $.Person.ID}}<option value="{{.ID}}">{{.FullName}}</option>{{end}}{{end}}
+        </select>
+      </label>
+      <label class="field">Năm kết hôn
+        <input name="marriage_year" type="number" min="1" max="9999">
+      </label>
+      <label class="field span-2">Ghi chú
+        <input name="note">
+      </label>
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="btn primary">➕ Thêm</button>
+    </div>
+  </form>
+</div>
+{{end}}

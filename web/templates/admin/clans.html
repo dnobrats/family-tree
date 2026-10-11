@@ -1,0 +1,60 @@
+{{define "content"}}
+<div class="card">
+  <h1>Quản lý chi</h1>
+  {{with .Error}}<div class="alert">{{.}}</div>{{end}}
+
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>ID</th><th>Tên chi</th><th>Mô tả</th><th class="col-actions">Thao tác</th></tr></thead>
+      <tbody>
+        {{range .Clans}}
+        <tr>
+          <td>{{.ID}}</td>
+          <td>{{.Name}}</td>
+          <td>{{deref .Description}}</td>
+          <td class="actions">
+            <a class="btn sm" href="/admin/clans/{{.ID}}/edit">Sửa</a>
+            <form method="post" action="/admin/clans/{{.ID}}/delete" class="inline-form"
+                  data-confirm="Xóa chi này? Các thành viên sẽ được gỡ khỏi chi.">
+              <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+              <button class="btn sm danger" type="submit">Xóa</button>
+            </form>
+          </td>
+        </tr>
+        {{else}}
+        <tr><td colspan="4" class="muted">Chưa có chi nào.</td></tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+
+  <h2>{{with .Edit}}Sửa chi{{else}}Thêm chi mới{{end}}</h2>
+  <form method="post" action="{{with .Edit}}/admin/clans/{{.ID}}{{else}}/admin/clans{{end}}">
+    <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+    <div class="form-grid">
+      <label class="field span-2">Tên chi *
+        <input name="name" required value="{{with .Edit}}{{.Name}}{{end}}">
+      </label>
+      <label class="field">Chi cha
+        <select name="parent_clan_id">
+          <option value="0">— Không —</option>
+          {{range .Clans}}{{if ne .ID $.EditID}}<option value="{{.ID}}" {{if eq .ID $.EditParentID}}selected{{end}}>{{.Name}}</option>{{end}}{{end}}
+        </select>
+      </label>
+      <label class="field">Người đứng đầu
+        <select name="root_person_id">
+          <option value="0">— Không —</option>
+          {{range .People}}<option value="{{.ID}}" {{if eq .ID $.EditRootID}}selected{{end}}>{{.FullName}}</option>{{end}}
+        </select>
+      </label>
+      <label class="field span-2">Mô tả
+        <textarea name="description" rows="2">{{with .Edit}}{{deref .Description}}{{end}}</textarea>
+      </label>
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="btn primary">Lưu</button>
+      {{with .Edit}}<a class="btn" href="/admin/clans">Hủy</a>{{end}}
+    </div>
+  </form>
+</div>
+{{end}}

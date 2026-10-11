@@ -1,0 +1,20 @@
+# Keep the docker build context small and free of secrets.
+.git
+.gitignore
+.env
+.env.*
+
+bin/
+server
+*.exe
+*.test
+*.out
+*.prof
+
+# Not needed to build the binary
+docs/
+*.md
+docker-compose.yml
+.commandcode/
+.vscode/
+.idea/

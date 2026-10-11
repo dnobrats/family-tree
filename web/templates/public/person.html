@@ -1,0 +1,63 @@
+{{define "content"}}
+<article class="card">
+  <header class="card-head">
+    <h1>{{.Detail.Person.FullName}}</h1>
+    <p class="badges">
+      <span class="badge">{{genderLabel .Detail.Person.Gender}}</span>
+      {{if .Detail.Person.IsAlive}}
+        <span class="badge alive">Còn sống</span>
+      {{else}}
+        <span class="badge dead">Đã mất</span>
+      {{end}}
+      {{with .Detail.Clan}}<span class="badge clan">{{.Name}}</span>{{end}}
+    </p>
+  </header>
+
+  <dl class="facts">
+    <dt>Năm sinh</dt><dd>{{deref .Detail.Person.BirthYear}}</dd>
+    <dt>Ngày sinh (dương lịch)</dt><dd>{{deref .Detail.Person.BirthDateSolar}}</dd>
+    <dt>Ngày sinh (âm lịch)</dt><dd>{{deref .Detail.Person.BirthDateLunar}}</dd>
+    {{if not .Detail.Person.IsAlive}}
+      <dt>Năm mất</dt><dd>{{deref .Detail.Person.DeathYear}}</dd>
+      <dt>Ngày mất (dương lịch)</dt><dd>{{deref .Detail.Person.DeathDateSolar}}</dd>
+      <dt>Ngày mất (âm lịch)</dt><dd>{{deref .Detail.Person.DeathDateLunar}}</dd>
+      <dt>Nơi an táng</dt><dd>{{deref .Detail.Person.GraveLocation}}</dd>
+    {{end}}
+    <dt>Nghề nghiệp</dt><dd>{{deref .Detail.Person.Occupation}}</dd>
+    <dt>Địa chỉ</dt><dd>{{deref .Detail.Person.Address}}</dd>
+    <dt>Điện thoại</dt><dd>{{deref .Detail.Person.Phone}}</dd>
+    <dt>Ghi chú</dt><dd>{{deref .Detail.Person.Note}}</dd>
+  </dl>
+
+  <h2>Quan hệ</h2>
+  <div class="relations">
+    <p><strong>Cha:</strong>
+      {{with .Detail.Father}}<a href="/persons/{{.ID}}">{{.FullName}}</a>{{else}}Không rõ{{end}}
+    </p>
+    <p><strong>Mẹ:</strong>
+      {{with .Detail.Mother}}<a href="/persons/{{.ID}}">{{.FullName}}</a>{{else}}Không rõ{{end}}
+    </p>
+
+    <p><strong>Vợ/Chồng:</strong></p>
+    {{if .Detail.Spouses}}
+      <ul>
+        {{range .Detail.Spouses}}
+          <li><a href="/persons/{{.PartnerID}}">{{.PartnerName}}</a>{{if .MarriageYear}} — kết hôn {{deref .MarriageYear}}{{end}}</li>
+        {{end}}
+      </ul>
+    {{else}}<p class="muted">Chưa có thông tin</p>{{end}}
+
+    <p><strong>Con cái:</strong></p>
+    {{if .Detail.Children}}
+      <ul>
+        {{range .Detail.Children}}<li><a href="/persons/{{.ID}}">{{.FullName}}</a></li>{{end}}
+      </ul>
+    {{else}}<p class="muted">Chưa có thông tin</p>{{end}}
+  </div>
+
+  <p class="no-print">
+    <a class="btn" href="/tree">← Về cây gia phả</a>
+    <button type="button" data-print class="btn primary">🖨 In</button>
+  </p>
+</article>
+{{end}}

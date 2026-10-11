@@ -1,0 +1,25 @@
+# --- Secrets / local config ---
+.env
+.env.*
+!.env.example
+
+# --- Go build output ---
+/bin/
+/server
+*.exe
+*.test
+*.out
+*.prof
+
+# --- Data / runtime ---
+pgdata/
+data/
+
+# --- Editor / OS ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# --- Tooling metadata ---
+.commandcode/
